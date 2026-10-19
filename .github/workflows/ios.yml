@@ -1,0 +1,108 @@
+# Builds an unsigned iOS app (.ipa) on GitHub's macOS runners.
+# Install it on an iPhone with Sideloadly (Windows) using your own Apple ID —
+# Sideloadly signs it. See BUILD.md.
+#
+#   release      — standalone app with the JS bundle inside. For you and friends.
+#   development  — dev client: loads JS from `npx expo start` on your PC (live reload).
+name: iOS build
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'release — готовое приложение, development — для разработки'
+        type: choice
+        options: [release, development]
+        default: release
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: ios-${{ github.ref }}-${{ inputs.variant || 'release' }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # attach the .ipa to a GitHub Release on version tags
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 75
+    env:
+      VARIANT: ${{ inputs.variant || 'release' }}
+      CI: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Expo SDK 57 needs Xcode 26.4 or newer.
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Generate native iOS project
+        run: npx expo prebuild --platform ios --clean --no-install
+
+      - name: Install CocoaPods
+        working-directory: ios
+        run: pod install
+
+      - name: Build app
+        run: |
+          WORKSPACE=$(ls -d ios/*.xcworkspace | head -1)
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          CONFIG=Release
+          if [ "$VARIANT" = "development" ]; then CONFIG=Debug; fi
+          echo "Workspace: $WORKSPACE, scheme: $SCHEME, configuration: $CONFIG"
+          set -o pipefail
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration "$CONFIG" \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build | tee build.log | grep -E '^(\*\*|error:|.*: error:|.*warning: .*deprecated)' || true
+          test -d "$(find build/Build/Products -maxdepth 2 -name '*.app' -type d | head -1)"
+
+      - name: Package .ipa
+        run: |
+          APP=$(find build/Build/Products -maxdepth 2 -name '*.app' -type d | head -1)
+          echo "App bundle: $APP"
+          mkdir -p dist/Payload
+          cp -R "$APP" dist/Payload/
+          (cd dist && zip -qry "../Navigator-$VARIANT.ipa" Payload)
+          ls -lh "Navigator-$VARIANT.ipa"
+
+      - name: Upload .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: Navigator-${{ env.VARIANT }}
+          path: Navigator-${{ env.VARIANT }}.ipa
+          retention-days: 30
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
+
+      # Tag pushes (v1.0.0, v1.1.0, ...) publish a Release friends can download from.
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Navigator-${{ env.VARIANT }}.ipa
+          generate_release_notes: true
