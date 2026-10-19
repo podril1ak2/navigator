@@ -4,7 +4,7 @@ import { Alert, ScrollView } from 'react-native';
 import { Row, Section, SegmentedRow, ToggleRow } from '../components/List';
 import type { TravelMode } from '../lib/api';
 import { usePalette } from '../lib/theme';
-import { speak, useTrip } from '../positioning/TripProvider';
+import { useTrip } from '../positioning/TripProvider';
 import { useAppState, type MapTheme } from '../state/AppState';
 
 const THEMES: { value: MapTheme; title: string }[] = [
@@ -39,7 +39,7 @@ export default function SettingsScreen() {
 
       <Section title="Навигация">
         <ToggleRow first icon="speaker.wave.2.fill" iconColor="#E5532D" title="Голосовые подсказки" value={settings.voice} onChange={(voice) => updateSettings({ voice })} />
-        <Row title="Проверить голос" onPress={() => speak('Через 300 метров поверните направо')} right={undefined} />
+        <Row icon="waveform" iconColor="#6C63FF" title="Голос" value={settings.voiceId ? 'Выбран' : 'Авто'} chevron onPress={() => router.push('/voices')} />
         <ToggleRow icon="camera.fill" iconColor="#D9534F" title="Предупреждать о камерах" value={settings.cameraAlerts} onChange={(cameraAlerts) => updateSettings({ cameraAlerts })} />
         <ToggleRow icon="gauge.with.needle.fill" iconColor="#6C63FF" title="Показывать скорость" value={settings.showSpeed} onChange={(showSpeed) => updateSettings({ showSpeed })} />
         <SegmentedRow

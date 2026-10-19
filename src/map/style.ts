@@ -153,6 +153,15 @@ const NAME = ['coalesce', ['get', 'name:ru'], ['get', 'name']];
 // Width ramps by zoom: [z, px] pairs.
 const w = (...stops: number[]) => ['interpolate', ['exponential', 1.6], ['zoom'], ...stops];
 
+/**
+ * App overlays (routes, maneuver arrow) go below this layer: above street-name
+ * labels (the route covers the name of the street you are on), under 3D buildings
+ * so houses in front hide the line, and under house numbers and POI labels.
+ */
+export function overlayBeforeId(opts: { buildings3d: boolean }): string {
+  return opts.buildings3d ? 'building-3d' : 'water-label';
+}
+
 export function buildMapStyle(p: MapPalette, opts: { buildings3d: boolean }): StyleSpecification {
   const notTunnel = ['!', ['match', ['get', 'brunnel'], ['tunnel'], true, false]];
   const classIn = (classes: string[]) => ['match', ['get', 'class'], classes, true, false];
@@ -258,6 +267,26 @@ export function buildMapStyle(p: MapPalette, opts: { buildings3d: boolean }): St
       filter: ['<=', ['get', 'admin_level'], 4],
       paint: { 'line-color': p.boundary, 'line-dasharray': [3, 2], 'line-width': 1 },
     },
+    {
+      id: 'road-label',
+      type: 'symbol',
+      source: 'omt',
+      'source-layer': 'transportation_name',
+      minzoom: 13,
+      filter: classIn([...MINOR, ...MAJOR, 'motorway', 'service']),
+      layout: {
+        'symbol-placement': 'line',
+        'text-field': shortStreetName(),
+        'text-font': REGULAR,
+        'text-size': ['interpolate', ['linear'], ['zoom'], 13, 11, 16, 13, 18, 15],
+        'text-max-angle': 50,
+        'symbol-spacing': 220,
+        'text-padding': 2,
+        'text-pitch-alignment': 'viewport',
+        'text-rotation-alignment': 'map',
+      },
+      paint: { 'text-color': p.roadLabel, 'text-halo-color': p.labelHalo, 'text-halo-width': 1.6 },
+    },
     ...(opts.buildings3d
       ? [
           {
@@ -271,7 +300,7 @@ export function buildMapStyle(p: MapPalette, opts: { buildings3d: boolean }): St
               'fill-extrusion-color': p.buildingTop,
               'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 15, 0, 16, ['*', 0.45, ['coalesce', ['get', 'render_height'], 8]]],
               'fill-extrusion-base': ['*', 0.45, ['coalesce', ['get', 'render_min_height'], 0]],
-              'fill-extrusion-opacity': 0.55,
+              'fill-extrusion-opacity': 0.92,
             },
           },
         ]
@@ -301,26 +330,6 @@ export function buildMapStyle(p: MapPalette, opts: { buildings3d: boolean }): St
       minzoom: 16,
       layout: { 'text-field': ['get', 'housenumber'], 'text-font': REGULAR, 'text-size': 11, 'text-padding': 4 },
       paint: { 'text-color': p.houseNumber, 'text-halo-color': p.labelHalo, 'text-halo-width': 1 },
-    },
-    {
-      id: 'road-label',
-      type: 'symbol',
-      source: 'omt',
-      'source-layer': 'transportation_name',
-      minzoom: 13,
-      filter: classIn([...MINOR, ...MAJOR, 'motorway', 'service']),
-      layout: {
-        'symbol-placement': 'line',
-        'text-field': shortStreetName(),
-        'text-font': REGULAR,
-        'text-size': ['interpolate', ['linear'], ['zoom'], 13, 11, 16, 13, 18, 15],
-        'text-max-angle': 50,
-        'symbol-spacing': 220,
-        'text-padding': 2,
-        'text-pitch-alignment': 'viewport',
-        'text-rotation-alignment': 'map',
-      },
-      paint: { 'text-color': p.roadLabel, 'text-halo-color': p.labelHalo, 'text-halo-width': 1.6 },
     },
     {
       id: 'poi',

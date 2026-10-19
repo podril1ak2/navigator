@@ -26,6 +26,7 @@ function ThemedStack() {
         <Stack.Screen name="settings" options={{ ...modal, title: 'Настройки' }} />
         <Stack.Screen name="offline" options={{ title: 'Офлайн-карты' }} />
         <Stack.Screen name="history" options={{ title: 'Поездки' }} />
+        <Stack.Screen name="voices" options={{ title: 'Голос' }} />
       </Stack>
     </NavigationThemeProvider>
   );

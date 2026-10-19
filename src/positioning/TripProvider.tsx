@@ -36,9 +36,19 @@ type TripContext = {
 
 const Ctx = createContext<TripContext | null>(null);
 
-export function speak(text: string) {
+// Current voice settings, applied to every prompt (set from the app settings).
+let voiceConfig: { voice?: string; rate: number } = { rate: 1 };
+
+/** Best installed Russian voice: enhanced/premium quality first. */
+export async function bestRussianVoice(): Promise<string | undefined> {
+  const voices = await Speech.getAvailableVoicesAsync().catch(() => []);
+  const ru = voices.filter((v) => v.language.toLowerCase().startsWith('ru'));
+  return (ru.find((v) => v.quality === Speech.VoiceQuality.Enhanced) ?? ru[0])?.identifier;
+}
+
+export function speak(text: string, override?: { voice?: string; rate?: number }) {
   Speech.stop();
-  Speech.speak(text, { language: 'ru-RU', rate: 1.0 });
+  Speech.speak(text, { language: 'ru-RU', voice: override?.voice ?? voiceConfig.voice, rate: override?.rate ?? voiceConfig.rate });
 }
 
 function haptic(kind: 'light' | 'medium' | 'success' | 'warning') {
@@ -76,6 +86,15 @@ export function TripProvider({ children }: { children: ReactNode }) {
   const [simActive, setSimActive] = useState(false);
   const [interference, setInterferenceState] = useState<SimInterference>('none');
   const sim = useRef<RouteSimulator | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    voiceConfig = { voice: settings.voiceId ?? undefined, rate: settings.voiceRate };
+    if (!settings.voiceId) bestRussianVoice().then((v) => !cancelled && (voiceConfig = { voice: v, rate: settings.voiceRate }));
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.voiceId, settings.voiceRate]);
 
   useEffect(() => {
     controller.setSettings({

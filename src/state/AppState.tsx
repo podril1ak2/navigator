@@ -17,6 +17,10 @@ export type Settings = {
   overSpeedTolerance: number | null;
   /** Remember where the car was left when a car trip ends. */
   autoParking: boolean;
+  /** iOS voice identifier; null = best installed Russian voice. */
+  voiceId: string | null;
+  /** Speech rate multiplier (1 = normal). */
+  voiceRate: number;
 };
 
 export type SavedPlace = Place & { label?: 'home' | 'work' };
@@ -44,6 +48,8 @@ const DEFAULT_SETTINGS: Settings = {
   cameraAlerts: true,
   overSpeedTolerance: 10,
   autoParking: true,
+  voiceId: null,
+  voiceRate: 1,
 };
 
 const KEYS = {

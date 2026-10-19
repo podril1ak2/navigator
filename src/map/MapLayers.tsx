@@ -30,7 +30,7 @@ const NAV_ROUTE_WIDTH = ['interpolate', ['exponential', 1.5], ['zoom'], 10, 5, 1
 const NAV_CASING_WIDTH = ['interpolate', ['exponential', 1.5], ['zoom'], 10, 7, 14, 13, 16, 18, 18, 32] as const;
 
 /** Route options shown while planning; the selected one on top. */
-export function RouteOptionsLayer({ routes, selected, onSelect }: { routes: Route[]; selected: number; onSelect: (i: number) => void }) {
+export function RouteOptionsLayer({ routes, selected, onSelect, beforeId }: { routes: Route[]; selected: number; onSelect: (i: number) => void; beforeId?: string }) {
   const { colors } = useThemed(makeStyles);
   const data = useMemo(
     () => collection(routes.map((r, i) => line(r.coordinates, { index: i, selected: i === selected ? 1 : 0 })).sort((a, b) => Number(a.properties!.selected) - Number(b.properties!.selected))),
@@ -48,12 +48,14 @@ export function RouteOptionsLayer({ routes, selected, onSelect }: { routes: Rout
     >
       <Layer
         id="route-options-casing"
+        beforeId={beforeId}
         type="line"
         layout={{ 'line-cap': 'round', 'line-join': 'round', 'line-sort-key': ['get', 'selected'] }}
         paint={{ 'line-color': ['case', ['==', ['get', 'selected'], 1], colors.routeCasing, 'rgba(0,0,0,0.22)'], 'line-width': CASING_WIDTH as never }}
       />
       <Layer
         id="route-options-line"
+        beforeId={beforeId}
         type="line"
         layout={{ 'line-cap': 'round', 'line-join': 'round', 'line-sort-key': ['get', 'selected'] }}
         paint={{ 'line-color': ['case', ['==', ['get', 'selected'], 1], colors.route, colors.routeAlt], 'line-width': ROUTE_WIDTH as never }}
@@ -63,7 +65,7 @@ export function RouteOptionsLayer({ routes, selected, onSelect }: { routes: Rout
 }
 
 /** Active route: passed part dimmed, remaining part bright. */
-export function ActiveRouteLayer({ route, along, splitAt }: { route: Route; along: number; splitAt: LatLng | null }) {
+export function ActiveRouteLayer({ route, along, splitAt, beforeId }: { route: Route; along: number; splitAt: LatLng | null; beforeId?: string }) {
   const { colors } = useThemed(makeStyles);
   const data = useMemo(() => {
     let i = 0;
@@ -77,6 +79,7 @@ export function ActiveRouteLayer({ route, along, splitAt }: { route: Route; alon
     <GeoJSONSource id="active-route" data={data}>
       <Layer
         id="active-route-casing"
+        beforeId={beforeId}
         type="line"
         filter={['==', ['get', 'part'], 'ahead']}
         layout={{ 'line-cap': 'round', 'line-join': 'round' }}
@@ -84,6 +87,7 @@ export function ActiveRouteLayer({ route, along, splitAt }: { route: Route; alon
       />
       <Layer
         id="active-route-behind"
+        beforeId={beforeId}
         type="line"
         filter={['==', ['get', 'part'], 'behind']}
         layout={{ 'line-cap': 'round', 'line-join': 'round' }}
@@ -91,6 +95,7 @@ export function ActiveRouteLayer({ route, along, splitAt }: { route: Route; alon
       />
       <Layer
         id="active-route-ahead"
+        beforeId={beforeId}
         type="line"
         filter={['==', ['get', 'part'], 'ahead']}
         layout={{ 'line-cap': 'round', 'line-join': 'round' }}
@@ -101,14 +106,14 @@ export function ActiveRouteLayer({ route, along, splitAt }: { route: Route; alon
 }
 
 /** White turn arrow drawn on the road at the next maneuver. */
-export function ManeuverArrowLayer({ route, step }: { route: Route; step: RouteStep }) {
+export function ManeuverArrowLayer({ route, step, beforeId }: { route: Route; step: RouteStep; beforeId?: string }) {
   const { colors } = useThemed(makeStyles);
   const data = useMemo(() => maneuverArrow(route, step), [route, step]);
   if (!data) return null;
   return (
     <GeoJSONSource id="maneuver-arrow" data={data}>
       {maneuverArrowLayers('maneuver-arrow', { fill: '#FFFFFF', outline: colors.scheme === 'dark' ? '#0E2A55' : colors.routeCasing }).map((spec) => (
-        <Layer key={spec.id} {...(spec as unknown as LayerProps)} />
+        <Layer key={spec.id} {...(spec as unknown as LayerProps)} beforeId={beforeId} />
       ))}
     </GeoJSONSource>
   );

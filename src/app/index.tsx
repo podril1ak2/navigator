@@ -15,7 +15,7 @@ import type { LatLng } from '../lib/geo';
 import { resolveMapFeature } from '../lib/places';
 import { type Palette, font, radius, useThemed } from '../lib/theme';
 import { AccuracyLayer, ActiveRouteLayer, CamerasLayer, ManeuverArrowLayer, ManeuverBubble, PinMarker, PlacesLayer, RouteOptionsLayer, UserPuck } from '../map/MapLayers';
-import { buildMapStyle, DAY, NIGHT } from '../map/style';
+import { buildMapStyle, DAY, NIGHT, overlayBeforeId } from '../map/style';
 import { useTrip, useTripSnapshot } from '../positioning/TripProvider';
 import { useAppState, type MapTheme } from '../state/AppState';
 
@@ -438,6 +438,7 @@ export default function MapScreen() {
   const work = app.favorites.find((f) => f.label === 'work');
   const navigating = mode === 'nav' && !!navRoute;
   const nextStep = trip.progress?.next ?? null;
+  const overlayBefore = overlayBeforeId({ buildings3d: settings.buildings3d });
   const showPlaces = !!category && (mode === 'place' || mode === 'search');
 
   return (
@@ -459,11 +460,11 @@ export default function MapScreen() {
       >
         <Camera ref={camera} initialViewState={{ center: ll(initialCenter ?? MOSCOW), zoom: 12 }} />
 
-        {mode === 'route' && routes.length ? <RouteOptionsLayer routes={routes} selected={selectedRoute} onSelect={setSelectedRoute} /> : null}
+        {mode === 'route' && routes.length ? <RouteOptionsLayer routes={routes} selected={selectedRoute} onSelect={setSelectedRoute} beforeId={overlayBefore} /> : null}
         {navigating && navRoute ? (
-          <ActiveRouteLayer route={navRoute} along={trip.progress?.along ?? 0} splitAt={trip.progress?.point ?? null} />
+          <ActiveRouteLayer route={navRoute} along={trip.progress?.along ?? 0} splitAt={trip.progress?.point ?? null} beforeId={overlayBefore} />
         ) : null}
-        {navigating && navRoute && nextStep && (trip.progress?.distanceToNext ?? Infinity) < 600 ? <ManeuverArrowLayer route={navRoute} step={nextStep} /> : null}
+        {navigating && navRoute && nextStep && (trip.progress?.distanceToNext ?? Infinity) < 600 ? <ManeuverArrowLayer route={navRoute} step={nextStep} beforeId={overlayBefore} /> : null}
         {navigating && nextStep && nextStep.maneuver.type !== 'arrive' && (trip.progress?.distanceToNext ?? Infinity) < 450 ? (
           <ManeuverBubble step={nextStep} distance={trip.progress!.distanceToNext} />
         ) : null}
