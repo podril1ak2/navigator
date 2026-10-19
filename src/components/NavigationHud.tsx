@@ -17,7 +17,20 @@ function splitDistance(m: number): [string, string] {
 }
 
 /** `children` (status pills) are stacked under the banner so they never overlap it. */
-export function ManeuverBanner({ trip, topInset, rerouting, children }: { trip: TripSnapshot; topInset: number; rerouting: boolean; children?: ReactNode }) {
+export function ManeuverBanner({
+  trip,
+  topInset,
+  rerouting,
+  children,
+  right,
+}: {
+  trip: TripSnapshot;
+  topInset: number;
+  rerouting: boolean;
+  children?: ReactNode;
+  /** Shown at the right under the banner (speed and limit). */
+  right?: ReactNode;
+}) {
   const { colors, s } = useThemed(makeStyles);
   const p = trip.progress;
   const next = p?.next;
@@ -35,7 +48,7 @@ export function ManeuverBanner({ trip, topInset, rerouting, children }: { trip: 
           </View>
         ) : (
           <View style={s.bannerRow}>
-            <ManeuverArrow maneuver={next.maneuver} size={64} />
+            <ManeuverArrow maneuver={next.maneuver} size={56} />
             <View style={{ flex: 1 }}>
               <Text style={s.distance}>
                 {value}
@@ -59,8 +72,11 @@ export function ManeuverBanner({ trip, topInset, rerouting, children }: { trip: 
           <ManeuverArrow maneuver={p.then.maneuver} size={22} />
         </View>
       ) : null}
-      <View style={s.below} pointerEvents="box-none">
-        {children}
+      <View style={s.belowRow} pointerEvents="box-none">
+        <View style={s.below} pointerEvents="box-none">
+          {children}
+        </View>
+        {right}
       </View>
     </View>
   );
@@ -166,25 +182,28 @@ export function NavFooter({ trip, totalDistance, bottomInset, voice, onToggleVoi
   const remaining = p?.remainingDuration ?? 0;
   const done = p ? 1 - p.remainingDistance / (totalDistance || 1) : 0;
   return (
-    <Glass style={s.footer} radius={radius.xl}>
-      <View style={[s.footerInner, { paddingBottom: Math.max(bottomInset, 12) }]}>
-        <View style={s.progressTrack}>
-          <View style={[s.progressFill, { width: `${Math.max(0, Math.min(1, done)) * 100}%` }]} />
-        </View>
+    <View style={[s.footerWrap, { paddingBottom: Math.max(bottomInset - 8, 8) }]} pointerEvents="box-none">
+      <Glass radius={22}>
         <View style={s.footerRow}>
           <Pressable onPress={() => (tap(), onToggleVoice())} style={s.footerBtn} hitSlop={8} accessibilityLabel="Звук">
-            <Icon name={voice ? 'speaker.wave.2.fill' : 'speaker.slash.fill'} size={18} color={colors.text} />
+            <Icon name={voice ? 'speaker.wave.2.fill' : 'speaker.slash.fill'} size={17} color={colors.text} />
           </Pressable>
-          <Pressable onPress={() => (tap(), onOverview())} style={s.footerCenter} accessibilityLabel="Обзор маршрута">
-            <Text style={s.eta}>{p ? formatClock(new Date(now + remaining * 1000)) : '—'}</Text>
-            <Text style={s.footerSub}>{p ? `${formatDuration(remaining)} · ${formatDistance(p.remainingDistance)}` : 'прибытие'}</Text>
+          <Pressable onPress={() => (tap(), onOverview())} style={s.footerStats} accessibilityLabel="Обзор маршрута">
+            <View style={s.statsRow}>
+              <Text style={s.stat}>{p ? formatDistance(p.remainingDistance) : '—'}</Text>
+              <Text style={s.eta}>{p ? formatClock(new Date(now + remaining * 1000)) : '—'}</Text>
+              <Text style={[s.stat, { textAlign: 'right' }]}>{p ? formatDuration(remaining) : '—'}</Text>
+            </View>
+            <View style={s.progressTrack}>
+              <View style={[s.progressFill, { width: `${Math.max(0, Math.min(1, done)) * 100}%` }]} />
+            </View>
           </Pressable>
-          <Pressable onPress={() => (tap(), onEnd())} style={[s.footerBtn, { backgroundColor: colors.red }]} hitSlop={8} accessibilityLabel="Завершить">
-            <Icon name="xmark" size={17} color={colors.onAccent} weight="bold" />
+          <Pressable onPress={() => (tap(), onEnd())} style={s.footerBtn} hitSlop={8} accessibilityLabel="Завершить">
+            <Icon name="xmark" size={16} color={colors.text} weight="bold" />
           </Pressable>
         </View>
-      </View>
-    </Glass>
+      </Glass>
+    </View>
   );
 }
 
@@ -216,21 +235,21 @@ const makeStyles = (colors: Palette) =>
   bannerWrap: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 8 },
   banner: {
     backgroundColor: colors.maneuver,
-    borderRadius: radius.xl,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderRadius: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.1)',
     shadowColor: '#000',
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
   },
-  bannerRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 64 },
+  bannerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56 },
   bannerStatus: { ...font.headline, color: colors.onAccent, flex: 1 },
-  distance: { color: colors.onAccent, fontSize: 40, fontWeight: '700', letterSpacing: -1, ...font.number },
-  unit: { fontSize: 22, fontWeight: '600', color: 'rgba(255,255,255,0.75)' },
-  street: { color: colors.onAccent, fontSize: 19, fontWeight: '600', marginTop: -2 },
+  distance: { color: colors.onAccent, fontSize: 34, fontWeight: '700', letterSpacing: -0.8, ...font.number },
+  unit: { fontSize: 19, fontWeight: '600', color: 'rgba(255,255,255,0.72)' },
+  street: { color: colors.onAccent, fontSize: 17, fontWeight: '600', marginTop: -3 },
   lanes: {
     marginTop: 12,
     paddingTop: 10,
@@ -250,7 +269,12 @@ const makeStyles = (colors: Palette) =>
     paddingVertical: 5,
   },
   thenText: { color: colors.onAccent, fontSize: 15, fontWeight: '600' },
-  below: { marginTop: 8, marginLeft: 4, gap: 6, alignItems: 'flex-start' },
+  below: { flex: 1, gap: 6, alignItems: 'flex-start' },
+  belowRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 8, marginHorizontal: 4, gap: 8 },
+  footerWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 10 },
+  footerStats: { flex: 1 },
+  statsRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  stat: { color: colors.text, fontSize: 16, fontWeight: '600', minWidth: 74, ...font.number },
   pill: { alignSelf: 'flex-start' },
   pillRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, paddingVertical: 8 },
   pillText: { color: colors.text, fontSize: 13, fontWeight: '600' },
@@ -270,22 +294,18 @@ const makeStyles = (colors: Palette) =>
     justifyContent: 'center',
   },
   limitText: { color: '#111111', fontSize: 18, fontWeight: '800', ...font.number },
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
-  footerInner: { paddingHorizontal: 14, paddingTop: 0 },
-  progressTrack: { height: 3, backgroundColor: colors.stroke, marginHorizontal: -14, marginBottom: 12 },
-  progressFill: { height: 3, backgroundColor: colors.accent },
-  footerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  progressTrack: { height: 4, borderRadius: 2, backgroundColor: colors.stroke, overflow: 'hidden', marginTop: 6 },
+  progressFill: { height: 4, borderRadius: 2, backgroundColor: colors.green },
+  footerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, paddingVertical: 8 },
   footerBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  footerCenter: { flex: 1, alignItems: 'center' },
-  eta: { color: colors.text, fontSize: 28, fontWeight: '700', letterSpacing: -0.5, ...font.number },
-  footerSub: { color: colors.textSecondary, fontSize: 14, marginTop: 1, ...font.number },
+  eta: { color: colors.text, fontSize: 20, fontWeight: '700', letterSpacing: -0.3, ...font.number },
   sim: { alignSelf: 'center' },
   simRow: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 4 },
   simLabel: { color: colors.textTertiary, fontSize: 10, fontWeight: '700', letterSpacing: 0.8, marginHorizontal: 8 },

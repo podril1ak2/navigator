@@ -1,12 +1,14 @@
-import { GeoJSONSource, Layer, Marker } from '@maplibre/maplibre-react-native';
+import { GeoJSONSource, Layer, Marker, type LayerProps } from '@maplibre/maplibre-react-native';
 import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Ellipse, Path } from 'react-native-svg';
 import { Icon } from '../components/Icon';
-import type { Place, Route, SpeedCamera } from '../lib/api';
-import type { LatLng } from '../lib/geo';
-import { useThemed, type Palette } from '../lib/theme';
+import { ManeuverArrow } from '../components/ManeuverArrow';
+import type { Place, Route, RouteStep, SpeedCamera } from '../lib/api';
+import { formatDistance, type LatLng } from '../lib/geo';
+import { font, useThemed, type Palette } from '../lib/theme';
 import type { DisplayPosition } from '../positioning/controller';
+import { maneuverArrow, maneuverArrowLayers } from './maneuver';
 
 const lngLat = (c: LatLng): [number, number] => [c.longitude, c.latitude];
 const line = (coords: LatLng[], props: Record<string, unknown> = {}): GeoJSON.Feature => ({
@@ -23,6 +25,9 @@ const collection = (features: GeoJSON.Feature[]): GeoJSON.FeatureCollection => (
 
 const ROUTE_WIDTH = ['interpolate', ['exponential', 1.5], ['zoom'], 10, 4, 14, 8, 18, 18] as const;
 const CASING_WIDTH = ['interpolate', ['exponential', 1.5], ['zoom'], 10, 6, 14, 11, 18, 23] as const;
+// Navigation: wider line, readable at a glance like big navigator apps.
+const NAV_ROUTE_WIDTH = ['interpolate', ['exponential', 1.5], ['zoom'], 10, 5, 14, 10, 16, 14, 18, 26] as const;
+const NAV_CASING_WIDTH = ['interpolate', ['exponential', 1.5], ['zoom'], 10, 7, 14, 13, 16, 18, 18, 32] as const;
 
 /** Route options shown while planning; the selected one on top. */
 export function RouteOptionsLayer({ routes, selected, onSelect }: { routes: Route[]; selected: number; onSelect: (i: number) => void }) {
@@ -45,7 +50,7 @@ export function RouteOptionsLayer({ routes, selected, onSelect }: { routes: Rout
         id="route-options-casing"
         type="line"
         layout={{ 'line-cap': 'round', 'line-join': 'round', 'line-sort-key': ['get', 'selected'] }}
-        paint={{ 'line-color': ['case', ['==', ['get', 'selected'], 1], colors.routeCasing, '#2E3440'], 'line-width': CASING_WIDTH as never }}
+        paint={{ 'line-color': ['case', ['==', ['get', 'selected'], 1], colors.routeCasing, 'rgba(0,0,0,0.22)'], 'line-width': CASING_WIDTH as never }}
       />
       <Layer
         id="route-options-line"
@@ -75,23 +80,53 @@ export function ActiveRouteLayer({ route, along, splitAt }: { route: Route; alon
         type="line"
         filter={['==', ['get', 'part'], 'ahead']}
         layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-        paint={{ 'line-color': colors.routeCasing, 'line-width': CASING_WIDTH as never }}
+        paint={{ 'line-color': colors.routeCasing, 'line-width': NAV_CASING_WIDTH as never }}
       />
       <Layer
         id="active-route-behind"
         type="line"
         filter={['==', ['get', 'part'], 'behind']}
         layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-        paint={{ 'line-color': colors.routePassed, 'line-width': ROUTE_WIDTH as never, 'line-opacity': 0.7 }}
+        paint={{ 'line-color': colors.routePassed, 'line-width': NAV_ROUTE_WIDTH as never, 'line-opacity': 0.7 }}
       />
       <Layer
         id="active-route-ahead"
         type="line"
         filter={['==', ['get', 'part'], 'ahead']}
         layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-        paint={{ 'line-color': colors.route, 'line-width': ROUTE_WIDTH as never }}
+        paint={{ 'line-color': colors.route, 'line-width': NAV_ROUTE_WIDTH as never }}
       />
     </GeoJSONSource>
+  );
+}
+
+/** White turn arrow drawn on the road at the next maneuver. */
+export function ManeuverArrowLayer({ route, step }: { route: Route; step: RouteStep }) {
+  const { colors } = useThemed(makeStyles);
+  const data = useMemo(() => maneuverArrow(route, step), [route, step]);
+  if (!data) return null;
+  return (
+    <GeoJSONSource id="maneuver-arrow" data={data}>
+      {maneuverArrowLayers('maneuver-arrow', { fill: '#FFFFFF', outline: colors.scheme === 'dark' ? '#0E2A55' : colors.routeCasing }).map((spec) => (
+        <Layer key={spec.id} {...(spec as unknown as LayerProps)} />
+      ))}
+    </GeoJSONSource>
+  );
+}
+
+/** Callout at the next turn: arrow and distance, like the bubble in big navigator apps. */
+export function ManeuverBubble({ step, distance }: { step: RouteStep; distance: number }) {
+  const { colors, s: styles } = useThemed(makeStyles);
+  return (
+    <Marker lngLat={lngLat(step.location)} anchor="bottom-left" offset={[-4, -6]}>
+      <View>
+        <View style={[styles.bubble, { backgroundColor: colors.accent }]}>
+          <ManeuverArrow maneuver={step.maneuver} size={24} />
+          <Text style={styles.bubbleText}>{formatDistance(distance)}</Text>
+        </View>
+        <View style={[styles.bubbleTail, { borderTopColor: colors.accent }]} />
+      </View>
+    </Marker>
   );
 }
 
@@ -197,26 +232,29 @@ export function AccuracyLayer({ position }: { position: DisplayPosition }) {
 }
 
 /**
- * User location puck. Arrow when moving/navigating (rotated relative to the map),
- * dot otherwise. Grey and dashed when the position is estimated (dead reckoning).
+ * User location puck. In motion: a two-tone arrow (like the app icon) rotated to the
+ * direction of travel relative to the map; at rest: a dot. Grey when the position is
+ * estimated (dead reckoning) rather than measured.
  */
 export function UserPuck({ position, mapBearing, arrow }: { position: DisplayPosition; mapBearing: number; arrow: boolean }) {
   const { colors, s: styles } = useThemed(makeStyles);
   const estimated = position.source !== 'gps';
-  const color = estimated ? colors.dr : colors.accent;
   const rotation = (position.course ?? 0) - mapBearing;
+  const [light, dark] = estimated ? ['#B4BBC6', '#7D8592'] : ['#4C95FF', '#1E5FD0'];
   return (
     <Marker lngLat={lngLat(position.coordinate)} anchor="center">
       <View style={styles.puckWrap}>
         {arrow && position.course != null ? (
           <View style={{ transform: [{ rotate: `${rotation}deg` }] }}>
-            <Svg width={44} height={44} viewBox="0 0 44 44">
-              <Circle cx={22} cy={22} r={20} fill="#FFFFFF" opacity={0.95} />
-              <Path d="M22 7 L33 33 L22 27 L11 33 Z" fill={color} stroke={color} strokeWidth={2} strokeLinejoin="round" />
+            <Svg width={56} height={56} viewBox="0 0 64 64">
+              <Ellipse cx={32} cy={50} rx={17} ry={5} fill="rgba(0,0,0,0.28)" />
+              <Path d="M32 4 L55 54 L32 42 L9 54 Z" fill="#FFFFFF" stroke="#FFFFFF" strokeWidth={7} strokeLinejoin="round" />
+              <Path d="M32 4 L32 42 L9 54 Z" fill={dark} stroke={dark} strokeWidth={1} strokeLinejoin="round" />
+              <Path d="M32 4 L55 54 L32 42 Z" fill={light} stroke={light} strokeWidth={1} strokeLinejoin="round" />
             </Svg>
           </View>
         ) : (
-          <View style={[styles.dot, { backgroundColor: color }, estimated && styles.dotDashed]} />
+          <View style={[styles.dot, { backgroundColor: estimated ? colors.dr : colors.accent }, estimated && styles.dotDashed]} />
         )}
       </View>
     </Marker>
@@ -254,7 +292,29 @@ const makeStyles = (colors: Palette) =>
     borderRightColor: 'transparent',
     marginTop: -1,
   },
-  puckWrap: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  puckWrap: { width: 60, height: 60, alignItems: 'center', justifyContent: 'center' },
+  bubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingLeft: 8,
+    paddingRight: 12,
+    height: 40,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  bubbleText: { color: '#FFFFFF', fontSize: 20, fontWeight: '700', ...font.number },
+  bubbleTail: {
+    width: 0,
+    height: 0,
+    marginLeft: 0,
+    borderRightWidth: 12,
+    borderTopWidth: 10,
+    borderRightColor: 'transparent',
+  },
   dot: {
     width: 20,
     height: 20,

@@ -14,7 +14,7 @@ import { fetchRoadInfo, fetchRoutes, reverseGeocode, type Place, type Route, typ
 import type { LatLng } from '../lib/geo';
 import { resolveMapFeature } from '../lib/places';
 import { type Palette, font, radius, useThemed } from '../lib/theme';
-import { AccuracyLayer, ActiveRouteLayer, CamerasLayer, PinMarker, PlacesLayer, RouteOptionsLayer, UserPuck } from '../map/MapLayers';
+import { AccuracyLayer, ActiveRouteLayer, CamerasLayer, ManeuverArrowLayer, ManeuverBubble, PinMarker, PlacesLayer, RouteOptionsLayer, UserPuck } from '../map/MapLayers';
 import { buildMapStyle, DAY, NIGHT } from '../map/style';
 import { useTrip, useTripSnapshot } from '../positioning/TripProvider';
 import { useAppState, type MapTheme } from '../state/AppState';
@@ -131,7 +131,7 @@ export default function MapScreen() {
         zoom,
         bearing: position.course ?? 0,
         pitch: 55,
-        padding: { top: screenH * 0.42, bottom: 140, left: 0, right: 0 },
+        padding: { top: screenH * 0.42, bottom: 100, left: 0, right: 0 },
         duration: 1000,
         easing: 'linear',
       });
@@ -437,6 +437,7 @@ export default function MapScreen() {
   const home = app.favorites.find((f) => f.label === 'home');
   const work = app.favorites.find((f) => f.label === 'work');
   const navigating = mode === 'nav' && !!navRoute;
+  const nextStep = trip.progress?.next ?? null;
   const showPlaces = !!category && (mode === 'place' || mode === 'search');
 
   return (
@@ -462,6 +463,10 @@ export default function MapScreen() {
         {navigating && navRoute ? (
           <ActiveRouteLayer route={navRoute} along={trip.progress?.along ?? 0} splitAt={trip.progress?.point ?? null} />
         ) : null}
+        {navigating && navRoute && nextStep && (trip.progress?.distanceToNext ?? Infinity) < 600 ? <ManeuverArrowLayer route={navRoute} step={nextStep} /> : null}
+        {navigating && nextStep && nextStep.maneuver.type !== 'arrive' && (trip.progress?.distanceToNext ?? Infinity) < 450 ? (
+          <ManeuverBubble step={nextStep} distance={trip.progress!.distanceToNext} />
+        ) : null}
         {showPlaces && category ? <PlacesLayer places={category.places} selectedId={place?.id ?? null} onSelect={(p) => openPlace(p, { keepCategory: true })} /> : null}
         {navigating ? <CamerasLayer cameras={cameras} /> : null}
 
@@ -478,7 +483,12 @@ export default function MapScreen() {
 
       {/* Top area */}
       {navigating ? (
-        <ManeuverBanner trip={trip} topInset={insets.top} rerouting={rerouting}>
+        <ManeuverBanner
+          trip={trip}
+          topInset={insets.top}
+          rerouting={rerouting}
+          right={<SpeedCluster trip={trip} show={settings.showSpeed && navRoute?.mode !== 'foot'} />}
+        >
           <SignalPill trip={trip} online={online} navigating />
           <CameraAlert trip={trip} />
         </ManeuverBanner>
@@ -525,21 +535,15 @@ export default function MapScreen() {
       ) : null}
 
       {/* Bottom area */}
-      {navigating ? (
-        <View style={[s.bottomLeft, { bottom: insets.bottom + 110 }]} pointerEvents="box-none">
-          <SpeedCluster trip={trip} show={settings.showSpeed && navRoute?.mode !== 'foot'} />
-        </View>
-      ) : null}
-
       {navigating && follow === 'off' ? (
-        <Pressable style={[s.recenter, { bottom: insets.bottom + 112 }]} onPress={() => (tap(), setFollow('follow'))}>
+        <Pressable style={[s.recenter, { bottom: insets.bottom + 84 }]} onPress={() => (tap(), setFollow('follow'))}>
           <Icon name="location.north.fill" size={15} color={colors.onAccent} />
           <Text style={s.recenterText}>Продолжить</Text>
         </Pressable>
       ) : null}
 
       {navigating && sim.active ? (
-        <View style={[s.simBar, { bottom: insets.bottom + 170 }]}>
+        <View style={[s.simBar, { bottom: insets.bottom + 140 }]}>
           <SimulationBar value={sim.interference} onChange={sim.setInterference} />
         </View>
       ) : null}
@@ -686,7 +690,6 @@ const makeStyles = (colors: Palette) =>
   compass: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center' },
   permission: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, paddingVertical: 8 },
   permissionText: { color: colors.text, fontSize: 13, fontWeight: '600' },
-  bottomLeft: { position: 'absolute', left: 12 },
   recenter: {
     position: 'absolute',
     alignSelf: 'center',
