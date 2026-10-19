@@ -3,7 +3,7 @@ import { Alert, ScrollView, Text } from 'react-native';
 import { Row, Section } from '../components/List';
 import type { TravelMode } from '../lib/api';
 import { formatDistance, formatDuration } from '../lib/geo';
-import { colors } from '../lib/theme';
+import { usePalette } from '../lib/theme';
 import { useAppState } from '../state/AppState';
 
 const MODE_ICON = { car: 'car.fill', bike: 'bicycle', foot: 'figure.walk' } as const satisfies Record<TravelMode, string>;
@@ -17,6 +17,7 @@ function formatDate(ts: number) {
 }
 
 export default function HistoryScreen() {
+  const colors = usePalette();
   const { trips, clearTrips, parking, setParking, openOnMap } = useAppState();
   const total = trips.reduce((sum, t) => sum + t.distance, 0);
 

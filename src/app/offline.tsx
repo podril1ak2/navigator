@@ -2,7 +2,7 @@ import { OfflineManager, type LngLatBounds, type OfflinePack, type OfflinePackSt
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Row, Section } from '../components/List';
-import { colors } from '../lib/theme';
+import { useThemed, type Palette } from '../lib/theme';
 import { LIBERTY_STYLE_URL } from '../map/style';
 import { useTrip, useTripSnapshot } from '../positioning/TripProvider';
 
@@ -25,6 +25,7 @@ function formatBytes(b: number) {
 }
 
 export default function OfflineScreen() {
+  const { colors, s: st } = useThemed(makeStyles);
   const { online } = useTrip();
   const trip = useTripSnapshot();
   const [packs, setPacks] = useState<PackRow[] | null>(null);
@@ -158,7 +159,8 @@ export default function OfflineScreen() {
   );
 }
 
-const st = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   loading: { padding: 20 },
   empty: { color: colors.textSecondary, padding: 16, fontSize: 15 },
   remove: { color: colors.red, fontSize: 14, paddingLeft: 8 },

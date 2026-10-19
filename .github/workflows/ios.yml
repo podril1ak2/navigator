@@ -31,6 +31,8 @@ jobs:
     env:
       VARIANT: ${{ inputs.variant || 'release' }}
       CI: 1
+      # Optional: street-level photos in place cards (repository secret MAPILLARY_TOKEN).
+      EXPO_PUBLIC_MAPILLARY_TOKEN: ${{ secrets.MAPILLARY_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 

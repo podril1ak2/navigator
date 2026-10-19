@@ -3,11 +3,9 @@ import { instructionText, type Lane, type Maneuver } from './instructions';
 
 // Free OpenStreetMap-based services:
 // - Photon: fast search-as-you-type and reverse geocoding.
-// - Nominatim: place details (opening hours, phone, website). ≤1 request/second.
 // - OSRM (routing.openstreetmap.de): car / bike / foot routes.
 // - Overpass: speed limits and speed cameras along a route.
 const PHOTON = 'https://photon.komoot.io';
-const NOMINATIM = 'https://nominatim.openstreetmap.org';
 const ROUTING = 'https://routing.openstreetmap.de';
 const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 const HEADERS = { 'User-Agent': 'iPhoneLab-Navigator/1.0', 'Accept-Language': 'ru' };
@@ -22,14 +20,6 @@ export type Place = {
   category?: string;
   /** OSM reference like "N123" for detail lookups. */
   osmRef?: string;
-};
-
-export type PlaceDetails = {
-  openingHours?: string;
-  phone?: string;
-  website?: string;
-  cuisine?: string;
-  wheelchair?: boolean;
 };
 
 export type TravelMode = 'car' | 'bike' | 'foot';
@@ -186,21 +176,6 @@ export async function reverseGeocode(c: LatLng, signal?: AbortSignal): Promise<P
   const data = await getJson<{ features: PhotonFeature[] }>(`${PHOTON}/reverse?${params}`, { signal });
   const f = data.features[0];
   return f ? { ...fromPhoton(f), coordinate: c } : null;
-}
-
-export async function placeDetails(osmRef: string, signal?: AbortSignal): Promise<PlaceDetails> {
-  const items = await getJson<{ extratags?: Record<string, string> }[]>(
-    `${NOMINATIM}/lookup?osm_ids=${encodeURIComponent(osmRef)}&format=jsonv2&extratags=1`,
-    { signal },
-  );
-  const t = items[0]?.extratags ?? {};
-  return {
-    openingHours: t.opening_hours,
-    phone: t.phone ?? t['contact:phone'],
-    website: t.website ?? t['contact:website'],
-    cuisine: t.cuisine,
-    wheelchair: t.wheelchair ? t.wheelchair === 'yes' : undefined,
-  };
 }
 
 // ---- Routing --------------------------------------------------------------

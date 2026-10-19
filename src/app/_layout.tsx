@@ -1,31 +1,44 @@
-import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { colors } from '../lib/theme';
+import { useMemo } from 'react';
+import { usePalette } from '../lib/theme';
 import { TripProvider } from '../positioning/TripProvider';
 import { AppStateProvider } from '../state/AppState';
+import { ThemeProvider } from '../state/ThemeProvider';
 
-const theme = {
-  ...DarkTheme,
-  colors: { ...DarkTheme.colors, primary: colors.accent, background: colors.bg, card: colors.surfaceSolid, border: colors.stroke },
-};
+const modal = { presentation: 'modal' as const };
 
-const modal = { presentation: 'modal' as const, headerLargeTitle: false };
+function ThemedStack() {
+  const c = usePalette();
+  const navTheme = useMemo(() => {
+    const base = c.scheme === 'dark' ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: { ...base.colors, primary: c.accent, background: c.bg, card: c.surfaceSolid, text: c.text, border: c.stroke },
+    };
+  }, [c]);
+  return (
+    <NavigationThemeProvider value={navTheme}>
+      <StatusBar style={c.scheme === 'dark' ? 'light' : 'dark'} />
+      <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="favorites" options={{ ...modal, title: 'Избранное' }} />
+        <Stack.Screen name="settings" options={{ ...modal, title: 'Настройки' }} />
+        <Stack.Screen name="offline" options={{ title: 'Офлайн-карты' }} />
+        <Stack.Screen name="history" options={{ title: 'Поездки' }} />
+      </Stack>
+    </NavigationThemeProvider>
+  );
+}
 
 export default function RootLayout() {
   return (
-    <ThemeProvider value={theme}>
-      <AppStateProvider>
-        <TripProvider>
-          <StatusBar style="light" />
-          <Stack>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="favorites" options={{ ...modal, title: 'Избранное' }} />
-            <Stack.Screen name="settings" options={{ ...modal, title: 'Настройки' }} />
-            <Stack.Screen name="offline" options={{ title: 'Офлайн-карты' }} />
-            <Stack.Screen name="history" options={{ title: 'Поездки' }} />
-          </Stack>
-        </TripProvider>
-      </AppStateProvider>
-    </ThemeProvider>
+    <AppStateProvider>
+      <TripProvider>
+        <ThemeProvider>
+          <ThemedStack />
+        </ThemeProvider>
+      </TripProvider>
+    </AppStateProvider>
   );
 }

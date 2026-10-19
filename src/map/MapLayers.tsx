@@ -5,7 +5,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { Icon } from '../components/Icon';
 import type { Place, Route, SpeedCamera } from '../lib/api';
 import type { LatLng } from '../lib/geo';
-import { colors } from '../lib/theme';
+import { useThemed, type Palette } from '../lib/theme';
 import type { DisplayPosition } from '../positioning/controller';
 
 const lngLat = (c: LatLng): [number, number] => [c.longitude, c.latitude];
@@ -26,6 +26,7 @@ const CASING_WIDTH = ['interpolate', ['exponential', 1.5], ['zoom'], 10, 6, 14, 
 
 /** Route options shown while planning; the selected one on top. */
 export function RouteOptionsLayer({ routes, selected, onSelect }: { routes: Route[]; selected: number; onSelect: (i: number) => void }) {
+  const { colors } = useThemed(makeStyles);
   const data = useMemo(
     () => collection(routes.map((r, i) => line(r.coordinates, { index: i, selected: i === selected ? 1 : 0 })).sort((a, b) => Number(a.properties!.selected) - Number(b.properties!.selected))),
     [routes, selected],
@@ -58,6 +59,7 @@ export function RouteOptionsLayer({ routes, selected, onSelect }: { routes: Rout
 
 /** Active route: passed part dimmed, remaining part bright. */
 export function ActiveRouteLayer({ route, along, splitAt }: { route: Route; along: number; splitAt: LatLng | null }) {
+  const { colors } = useThemed(makeStyles);
   const data = useMemo(() => {
     let i = 0;
     while (i < route.cumulative.length - 1 && route.cumulative[i + 1] <= along) i++;
@@ -95,6 +97,7 @@ export function ActiveRouteLayer({ route, along, splitAt }: { route: Route; alon
 
 /** Search / category results as dots with labels; tapping selects. */
 export function PlacesLayer({ places, selectedId, onSelect }: { places: Place[]; selectedId: string | null; onSelect: (p: Place) => void }) {
+  const { colors } = useThemed(makeStyles);
   const data = useMemo(() => collection(places.map((p, i) => point(p.coordinate, { i, name: p.name, sel: p.id === selectedId ? 1 : 0 }))), [places, selectedId]);
   return (
     <GeoJSONSource
@@ -128,13 +131,14 @@ export function PlacesLayer({ places, selectedId, onSelect }: { places: Place[];
           'text-max-width': 9,
           'text-optional': true,
         }}
-        paint={{ 'text-color': '#FFFFFF', 'text-halo-color': '#000000', 'text-halo-width': 1.4 }}
+        paint={{ 'text-color': colors.text, 'text-halo-color': colors.bg, 'text-halo-width': 1.4 }}
       />
     </GeoJSONSource>
   );
 }
 
 export function CamerasLayer({ cameras }: { cameras: SpeedCamera[] }) {
+  const { s: styles } = useThemed(makeStyles);
   return (
     <>
       {cameras.map((c) => (
@@ -149,6 +153,7 @@ export function CamerasLayer({ cameras }: { cameras: SpeedCamera[] }) {
 }
 
 export function PinMarker({ coordinate, kind = 'destination' }: { coordinate: LatLng; kind?: 'destination' | 'stop' | 'parking' | 'home' | 'work' }) {
+  const { colors, s: styles } = useThemed(makeStyles);
   const color = { destination: colors.red, stop: colors.orange, parking: '#4B6BFF', home: colors.green, work: '#8C6CFF' }[kind];
   const icon = ({ destination: 'mappin', stop: 'flag.fill', parking: 'parkingsign', home: 'house.fill', work: 'briefcase.fill' } as const)[kind];
   return (
@@ -165,6 +170,7 @@ export function PinMarker({ coordinate, kind = 'destination' }: { coordinate: La
 
 /** Accuracy halo in meters; size follows zoom. */
 export function AccuracyLayer({ position }: { position: DisplayPosition }) {
+  const { colors } = useThemed(makeStyles);
   const data = useMemo(() => collection([point(position.coordinate)]), [position.coordinate]);
   const lat = position.coordinate.latitude;
   // MapLibre native uses 512 px tiles.
@@ -195,6 +201,7 @@ export function AccuracyLayer({ position }: { position: DisplayPosition }) {
  * dot otherwise. Grey and dashed when the position is estimated (dead reckoning).
  */
 export function UserPuck({ position, mapBearing, arrow }: { position: DisplayPosition; mapBearing: number; arrow: boolean }) {
+  const { colors, s: styles } = useThemed(makeStyles);
   const estimated = position.source !== 'gps';
   const color = estimated ? colors.dr : colors.accent;
   const rotation = (position.course ?? 0) - mapBearing;
@@ -216,7 +223,8 @@ export function UserPuck({ position, mapBearing, arrow }: { position: DisplayPos
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   camera: {
     width: 24,
     height: 24,

@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useNow } from '../hooks/useNow';
 import type { Place, Route, TravelMode } from '../lib/api';
 import { formatClock, formatDistance, formatDuration } from '../lib/geo';
-import { colors, font, radius } from '../lib/theme';
+import { type Palette, font, radius, useThemed } from '../lib/theme';
 import { Icon, type SFSymbol } from './Icon';
 import { ManeuverArrow } from './ManeuverArrow';
 import { Button, CloseButton, Sheet, tap } from './ui';
@@ -35,6 +35,7 @@ type Props = {
 };
 
 export function RoutePanel(p: Props) {
+  const { colors, s } = useThemed(makeStyles);
   const [showSteps, setShowSteps] = useState(false);
   const route = p.routes[p.selected];
   const now = useNow();
@@ -143,6 +144,7 @@ export function RoutePanel(p: Props) {
 }
 
 function StopRow({ icon, color, title, onRemove }: { icon: SFSymbol; color: string; title: string; onRemove?: () => void }) {
+  const { colors, s } = useThemed(makeStyles);
   return (
     <View style={s.stopRow}>
       <Icon name={icon} size={13} color={color} />
@@ -158,7 +160,8 @@ function StopRow({ icon, color, title, onRemove }: { icon: SFSymbol; color: stri
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   stops: { flex: 1, gap: 6 },
   stopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNow } from '../hooks/useNow';
 import { formatClock, formatDistance, formatDuration } from '../lib/geo';
-import { colors, font, radius } from '../lib/theme';
+import { type Palette, font, radius, useThemed } from '../lib/theme';
 import type { TripSnapshot } from '../positioning/controller';
 import type { SimInterference } from '../positioning/simulator';
 import { Icon } from './Icon';
@@ -18,6 +18,7 @@ function splitDistance(m: number): [string, string] {
 
 /** `children` (status pills) are stacked under the banner so they never overlap it. */
 export function ManeuverBanner({ trip, topInset, rerouting, children }: { trip: TripSnapshot; topInset: number; rerouting: boolean; children?: ReactNode }) {
+  const { colors, s } = useThemed(makeStyles);
   const p = trip.progress;
   const next = p?.next;
   const [value, unit] = splitDistance(p?.distanceToNext ?? 0);
@@ -29,7 +30,7 @@ export function ManeuverBanner({ trip, topInset, rerouting, children }: { trip: 
       <View style={s.banner}>
         {rerouting || !p || !next ? (
           <View style={s.bannerRow}>
-            <Icon name={rerouting ? 'arrow.triangle.2.circlepath' : 'location.magnifyingglass'} size={30} color={colors.text} />
+            <Icon name={rerouting ? 'arrow.triangle.2.circlepath' : 'location.magnifyingglass'} size={30} color={colors.onAccent} />
             <Text style={s.bannerStatus}>{rerouting ? 'Перестраиваем маршрут' : 'Ищем вас на маршруте'}</Text>
           </View>
         ) : (
@@ -67,6 +68,7 @@ export function ManeuverBanner({ trip, topInset, rerouting, children }: { trip: 
 
 /** GPS / network status pill. Hidden when everything is fine. */
 export function SignalPill({ trip, online, navigating }: { trip: TripSnapshot; online: boolean; navigating: boolean }) {
+  const { colors, s } = useThemed(makeStyles);
   let icon: 'location.slash.fill' | 'exclamationmark.triangle.fill' | 'location.fill' | 'wifi.slash' | null = null;
   let text = '';
   let tint: string = colors.orange;
@@ -108,6 +110,7 @@ function formatSeconds(sec: number) {
 }
 
 export function CameraAlert({ trip }: { trip: TripSnapshot }) {
+  const { colors, s } = useThemed(makeStyles);
   const cam = trip.nextCamera;
   if (!cam || cam.distance > 700) return null;
   return (
@@ -124,6 +127,7 @@ export function CameraAlert({ trip }: { trip: TripSnapshot }) {
 }
 
 export function SpeedCluster({ trip, show }: { trip: TripSnapshot; show: boolean }) {
+  const { colors, s } = useThemed(makeStyles);
   const speed = trip.position?.source === 'gps' && trip.position.speed != null ? trip.position.speed * 3.6 : null;
   if (!show || (speed == null && trip.speedLimit == null)) return null;
   return (
@@ -156,6 +160,7 @@ type FooterProps = {
 };
 
 export function NavFooter({ trip, totalDistance, bottomInset, voice, onToggleVoice, onOverview, onEnd }: FooterProps) {
+  const { colors, s } = useThemed(makeStyles);
   const now = useNow();
   const p = trip.progress;
   const remaining = p?.remainingDuration ?? 0;
@@ -175,7 +180,7 @@ export function NavFooter({ trip, totalDistance, bottomInset, voice, onToggleVoi
             <Text style={s.footerSub}>{p ? `${formatDuration(remaining)} · ${formatDistance(p.remainingDistance)}` : 'прибытие'}</Text>
           </Pressable>
           <Pressable onPress={() => (tap(), onEnd())} style={[s.footerBtn, { backgroundColor: colors.red }]} hitSlop={8} accessibilityLabel="Завершить">
-            <Icon name="xmark" size={17} color={colors.text} weight="bold" />
+            <Icon name="xmark" size={17} color={colors.onAccent} weight="bold" />
           </Pressable>
         </View>
       </View>
@@ -190,6 +195,7 @@ const SIM_OPTIONS: { value: SimInterference; title: string; icon: 'checkmark.cir
 ];
 
 export function SimulationBar({ value, onChange }: { value: SimInterference; onChange: (v: SimInterference) => void }) {
+  const { colors, s } = useThemed(makeStyles);
   return (
     <Glass radius={radius.md} style={s.sim}>
       <View style={s.simRow}>
@@ -205,7 +211,8 @@ export function SimulationBar({ value, onChange }: { value: SimInterference; onC
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   bannerWrap: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 8 },
   banner: {
     backgroundColor: colors.maneuver,
@@ -220,10 +227,10 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
   },
   bannerRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 64 },
-  bannerStatus: { ...font.headline, color: colors.text, flex: 1 },
-  distance: { color: colors.text, fontSize: 40, fontWeight: '700', letterSpacing: -1, ...font.number },
+  bannerStatus: { ...font.headline, color: colors.onAccent, flex: 1 },
+  distance: { color: colors.onAccent, fontSize: 40, fontWeight: '700', letterSpacing: -1, ...font.number },
   unit: { fontSize: 22, fontWeight: '600', color: 'rgba(255,255,255,0.75)' },
-  street: { color: colors.text, fontSize: 19, fontWeight: '600', marginTop: -2 },
+  street: { color: colors.onAccent, fontSize: 19, fontWeight: '600', marginTop: -2 },
   lanes: {
     marginTop: 12,
     paddingTop: 10,
@@ -242,7 +249,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
   },
-  thenText: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  thenText: { color: colors.onAccent, fontSize: 15, fontWeight: '600' },
   below: { marginTop: 8, marginLeft: 4, gap: 6, alignItems: 'flex-start' },
   pill: { alignSelf: 'flex-start' },
   pillRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, paddingVertical: 8 },
@@ -265,7 +272,7 @@ const s = StyleSheet.create({
   limitText: { color: '#111111', fontSize: 18, fontWeight: '800', ...font.number },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   footerInner: { paddingHorizontal: 14, paddingTop: 0 },
-  progressTrack: { height: 3, backgroundColor: 'rgba(255,255,255,0.08)', marginHorizontal: -14, marginBottom: 12 },
+  progressTrack: { height: 3, backgroundColor: colors.stroke, marginHorizontal: -14, marginBottom: 12 },
   progressFill: { height: 3, backgroundColor: colors.accent },
   footerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   footerBtn: {

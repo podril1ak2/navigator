@@ -1,4 +1,4 @@
-import { Camera, Map, type CameraRef, type LngLatBounds } from '@maplibre/maplibre-react-native';
+import { Camera, Map, type CameraRef, type LngLatBounds, type MapRef } from '@maplibre/maplibre-react-native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -10,11 +10,10 @@ import { PlaceCard } from '../components/PlaceCard';
 import { RoutePanel } from '../components/RoutePanel';
 import { SearchOverlay } from '../components/SearchOverlay';
 import { Glass, GroupButton, MapButtonGroup, tap } from '../components/ui';
-import { useNow } from '../hooks/useNow';
 import { fetchRoadInfo, fetchRoutes, reverseGeocode, type Place, type Route, type SpeedCamera, type TravelMode } from '../lib/api';
 import type { LatLng } from '../lib/geo';
-import { isDaytime } from '../lib/sun';
-import { colors, font, radius } from '../lib/theme';
+import { resolveMapFeature } from '../lib/places';
+import { type Palette, font, radius, useThemed } from '../lib/theme';
 import { AccuracyLayer, ActiveRouteLayer, CamerasLayer, PinMarker, PlacesLayer, RouteOptionsLayer, UserPuck } from '../map/MapLayers';
 import { buildMapStyle, DAY, NIGHT } from '../map/style';
 import { useTrip, useTripSnapshot } from '../positioning/TripProvider';
@@ -48,9 +47,12 @@ function boundsOf(points: LatLng[]): LngLatBounds {
 }
 
 export default function MapScreen() {
+  const { colors, s } = useThemed(makeStyles);
   const insets = useSafeAreaInsets();
   const { height: screenH } = useWindowDimensions();
   const camera = useRef<CameraRef>(null);
+  const mapRef = useRef<MapRef>(null);
+  const poiAbort = useRef<AbortController | null>(null);
   const app = useAppState();
   const { settings, updateSettings } = app;
   const { controller, permission, heading, online, sim, setHandlers, initialCenter } = useTrip();
@@ -85,14 +87,8 @@ export default function MapScreen() {
   const tripStart = useRef<{ startedAt: number; to: Place; arrived: boolean } | null>(null);
   const centeredOnUser = useRef(false);
 
-  // ---- Map theme ---------------------------------------------------------
-  const minute = useNow(60000);
-  const day = useMemo(() => {
-    if (settings.mapTheme !== 'auto') return settings.mapTheme === 'day';
-    return isDaytime(position?.coordinate ?? initialCenter ?? MOSCOW, new Date(minute));
-    // Re-evaluate on the minute tick, not on every GPS fix.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.mapTheme, minute, initialCenter]);
+  // ---- Map theme: follows the app theme (auto / day / night) -----------------
+  const day = colors.scheme === 'light';
   const mapStyle = useMemo(() => buildMapStyle(day ? DAY : NIGHT, { buildings3d: settings.buildings3d }), [day, settings.buildings3d]);
 
   // ---- Camera helpers ----------------------------------------------------
@@ -180,6 +176,44 @@ export default function MapScreen() {
       // Keep the unnamed pin.
     } finally {
       setPlaceLoading(false);
+    }
+  };
+
+  /** Tap on a map icon (shop, pharmacy, cafe…) or a place label opens its card. */
+  const onMapPress = async (point: [number, number], lngLat: [number, number]) => {
+    if (mode === 'nav' || mode === 'search') return;
+    const [x, y] = point;
+    const features = await mapRef.current
+      ?.queryRenderedFeatures(
+        [
+          [x - 14, y - 14],
+          [x + 14, y + 14],
+        ],
+        { layers: ['poi', 'place-major', 'place-minor'] },
+      )
+      .catch(() => [] as GeoJSON.Feature[]);
+    const f = features?.find((ft) => ft.properties?.name || ft.properties?.['name:ru']);
+    if (!f) return;
+    tap();
+    const at: LatLng =
+      f.geometry.type === 'Point'
+        ? { longitude: f.geometry.coordinates[0], latitude: f.geometry.coordinates[1] }
+        : { longitude: lngLat[0], latitude: lngLat[1] };
+    const name = String(f.properties?.['name:ru'] ?? f.properties?.name);
+    poiAbort.current?.abort();
+    const ctrl = new AbortController();
+    poiAbort.current = ctrl;
+    setCategory(null);
+    setPlace({ id: `tap-${at.latitude.toFixed(5)}-${at.longitude.toFixed(5)}`, name, address: '', coordinate: at });
+    setPlaceLoading(false);
+    if (mode !== 'route') setMode('place');
+    camera.current?.easeTo({ center: ll(at), duration: 500 });
+    if (!online) return;
+    try {
+      const p = await resolveMapFeature({ id: f.id, properties: f.properties }, at, ctrl.signal);
+      if (p && !ctrl.signal.aborted) setPlace(p);
+    } catch {
+      // Keep the name-only card.
     }
   };
 
@@ -408,8 +442,10 @@ export default function MapScreen() {
   return (
     <View style={s.root}>
       <Map
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
         mapStyle={mapStyle}
+        onPress={(e) => onMapPress(e.nativeEvent.point, e.nativeEvent.lngLat)}
         logo={false}
         compass={false}
         attribution
@@ -497,7 +533,7 @@ export default function MapScreen() {
 
       {navigating && follow === 'off' ? (
         <Pressable style={[s.recenter, { bottom: insets.bottom + 112 }]} onPress={() => (tap(), setFollow('follow'))}>
-          <Icon name="location.north.fill" size={15} color={colors.text} />
+          <Icon name="location.north.fill" size={15} color={colors.onAccent} />
           <Text style={s.recenterText}>Продолжить</Text>
         </Pressable>
       ) : null}
@@ -530,7 +566,7 @@ export default function MapScreen() {
                 }
               />
               <Shortcut icon="star.fill" color={colors.yellow} title="Избранное" onPress={() => router.push('/favorites')} />
-              <Shortcut icon="ellipsis" color={colors.surfacePressed} title="Ещё" onPress={() => router.push('/settings')} />
+              <Shortcut icon="ellipsis" color="#8E8E93" title="Ещё" onPress={() => router.push('/settings')} />
             </View>
           </View>
         </Glass>
@@ -626,6 +662,7 @@ export default function MapScreen() {
 }
 
 function Shortcut({ icon, color, title, sub, onPress }: { icon: SFSymbol; color: string; title: string; sub?: string; onPress: () => void }) {
+  const { s } = useThemed(makeStyles);
   return (
     <Pressable onPress={() => (tap(), onPress())} style={({ pressed }) => [s.shortcut, pressed && { opacity: 0.6 }]}>
       <View style={[s.shortcutIcon, { backgroundColor: color }]}>
@@ -641,7 +678,8 @@ function Shortcut({ icon, color, title, sub, onPress }: { icon: SFSymbol; color:
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   topLeft: { position: 'absolute', left: 12, right: 72, gap: 8, alignItems: 'flex-start' },
   mapButtons: { position: 'absolute', right: 12, gap: 10, alignItems: 'center' },
@@ -660,7 +698,7 @@ const s = StyleSheet.create({
     height: 44,
     borderRadius: 22,
   },
-  recenterText: { ...font.headline, color: colors.text, fontSize: 16 },
+  recenterText: { ...font.headline, color: colors.onAccent, fontSize: 16 },
   simBar: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   dock: { position: 'absolute', left: 0, right: 0, bottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   dockInner: { paddingHorizontal: 16, paddingTop: 14 },

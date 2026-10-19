@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
 import { Alert, ScrollView, Text } from 'react-native';
 import { Row, Section } from '../components/List';
-import { colors } from '../lib/theme';
+import { usePalette } from '../lib/theme';
 import { useAppState, type SavedPlace } from '../state/AppState';
 
 export default function FavoritesScreen() {
+  const colors = usePalette();
   const { favorites, removeFavorite, openOnMap } = useAppState();
   const home = favorites.find((f) => f.label === 'home');
   const work = favorites.find((f) => f.label === 'work');

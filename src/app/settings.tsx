@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { Alert, ScrollView } from 'react-native';
 import { Row, Section, SegmentedRow, ToggleRow } from '../components/List';
 import type { TravelMode } from '../lib/api';
-import { colors } from '../lib/theme';
+import { usePalette } from '../lib/theme';
 import { speak, useTrip } from '../positioning/TripProvider';
 import { useAppState, type MapTheme } from '../state/AppState';
 
@@ -25,6 +25,7 @@ const TOLERANCE: { value: number | null; title: string }[] = [
 ];
 
 export default function SettingsScreen() {
+  const colors = usePalette();
   const { settings, updateSettings, clearRecents, recents } = useAppState();
   const { permission, online } = useTrip();
 

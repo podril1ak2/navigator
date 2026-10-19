@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import { colors, font, radius } from '../lib/theme';
+import { type Palette, font, radius, useThemed } from '../lib/theme';
 import { Icon, type SFSymbol } from './Icon';
 import { tap } from './ui';
 
 /** iOS-style grouped list primitives for settings-like screens. */
 
 export function Section({ title, footer, children }: { title?: string; footer?: string; children: ReactNode }) {
+  const { s } = useThemed(makeStyles);
   return (
     <View style={s.section}>
       {title ? <Text style={s.title}>{title}</Text> : null}
@@ -18,7 +19,7 @@ export function Section({ title, footer, children }: { title?: string; footer?: 
 
 export function Row({
   icon,
-  iconColor = colors.accent,
+  iconColor,
   title,
   subtitle,
   value,
@@ -39,6 +40,7 @@ export function Row({
   right?: ReactNode;
   first?: boolean;
 }) {
+  const { colors, s } = useThemed(makeStyles);
   return (
     <Pressable
       disabled={!onPress}
@@ -46,7 +48,7 @@ export function Row({
       style={({ pressed }) => [s.row, !first && s.rowDivider, pressed && { backgroundColor: colors.surfacePressed }]}
     >
       {icon ? (
-        <View style={[s.icon, { backgroundColor: iconColor }]}>
+        <View style={[s.icon, { backgroundColor: iconColor ?? colors.accent }]}>
           <Icon name={icon} size={15} color="#FFFFFF" />
         </View>
       ) : null}
@@ -68,6 +70,7 @@ export function Row({
 }
 
 export function ToggleRow(props: { icon?: SFSymbol; iconColor?: string; title: string; subtitle?: string; value: boolean; onChange: (v: boolean) => void; first?: boolean }) {
+  const { colors } = useThemed(makeStyles);
   return (
     <Row
       {...props}
@@ -86,6 +89,7 @@ export function Segmented<T extends string | number | null>({
   value: T;
   onChange: (v: T) => void;
 }) {
+  const { colors, s } = useThemed(makeStyles);
   return (
     <View style={s.segmented}>
       {options.map((o) => {
@@ -108,6 +112,7 @@ export function SegmentedRow<T extends string | number | null>(props: {
   onChange: (v: T) => void;
   first?: boolean;
 }) {
+  const { s } = useThemed(makeStyles);
   return (
     <View style={[s.segRow, !props.first && s.rowDivider]}>
       <Text style={s.segTitle}>{props.title}</Text>
@@ -116,7 +121,8 @@ export function SegmentedRow<T extends string | number | null>(props: {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   section: { marginBottom: 26 },
   title: { ...font.caption, color: colors.textTertiary, textTransform: 'uppercase', marginBottom: 7, marginLeft: 16 },
   footer: { color: colors.textTertiary, fontSize: 13, lineHeight: 18, marginTop: 7, marginHorizontal: 16 },

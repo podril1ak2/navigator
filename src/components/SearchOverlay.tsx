@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NetworkError, searchNearby, searchPlaces, type Category, type Place } from '../lib/api';
 import { distance, formatDistance, type LatLng } from '../lib/geo';
-import { colors, font, radius } from '../lib/theme';
+import { type Palette, font, radius, useThemed } from '../lib/theme';
 import { useAppState } from '../state/AppState';
 import { Icon, type SFSymbol } from './Icon';
 import { IconBadge, tap } from './ui';
@@ -30,6 +30,7 @@ type Props = {
 };
 
 export function SearchOverlay({ topInset, near, online, onClose, onPick, onCategoryResults }: Props) {
+  const { colors, s } = useThemed(makeStyles);
   const { recents, clearRecents, favorites } = useAppState();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Place[] | null>(null);
@@ -196,7 +197,8 @@ export function SearchOverlay({ topInset, near, online, onClose, onPick, onCateg
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   root: { ...StyleSheet.absoluteFill, backgroundColor: colors.bg },
   searchRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 12 },
   inputWrap: {
